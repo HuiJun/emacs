@@ -1,8 +1,20 @@
+;; No toolbar
 (tool-bar-mode 0)
-(setq inhibit-splash-screen t)
+;; Add space after line numbers
+(global-linum-mode 1)
+;; Set default font
+(set-default-font "Terminus-12")
+;; Stop spash screen and scratch message
+(setq inhibit-splash-screen t
+      initial-scratch-message nil)
+;; 
 (setq-default truncate-lines 1)
 (setq warning-minimum-level :error)
-(global-linum-mode 1)
+(setq-default indent-tabs-mode nil)
+(setq-default tab-width 4)
+(setq-default indent-line-function 'insert-tab)
+(defvaralias 'c-basic-offset 'tab-width)
+(defvaralias 'cperl-indent-level 'tab-width)
 
 ;; Move Backup and Autosave files
 (defvar user-temporary-file-directory
@@ -17,27 +29,39 @@
 (setq auto-save-file-name-transforms
       `((".*" ,user-temporary-file-directory t)))
 
-;; Load Theme
-(add-to-list 'custom-theme-load-path "~/.emacs.d/themes")
-(load-theme 'solarized-dark t)
+;; eDiff Configuration
+;; split windows vertically:
+(setq ediff-split-window-function 'split-window-horizontally)
+;; only hilight current diff:
+(setq-default ediff-highlight-all-diffs 'nil)
+;; turn off whitespace checking:
+(setq ediff-diff-options "-w")
+;; place the control window in the same frame as the ediff buffers
+(setq ediff-window-setup-function 'ediff-setup-windows-plain)
+;; place the control window in a separate frame from the ediff buffers
+;; (setq ediff-window-setup-function 'ediff-setup-windows-multiframe)
+;; highlight changes to characters rather than whole words
+;; (setq ediff-forward-word-function 'forward-char)
+(load "~/.emacs.d/lisp/ediff-trees.el")
 
-;; Load Theme in every new frame
-(defun thj-reload-solarized (frame)
-  (select-frame frame)
-  (load-theme 'solarized-dark t))
-(defun thj-reload-solarized-on-delete (&optional frame)
-    (load-theme 'solarized-dark t))
-(add-hook 'delete-frame-functions 'thj-reload-solarized-on-delete)
-(add-hook 'server-done-hook 'thj-reload-solarized-on-delete)
-(add-hook 'after-make-frame-functions 'thj-reload-solarized)
+;; Start nXhtml
+(load "~/.emacs.d/nxhtml/autostart.el")
+(load "~/.emacs.d/lisp/mumamo-workaround.el")
+(setq mumamo-background-colors nil)
 
-;; Set Tabs and Font
-(set-default-font "Terminus-12")
-(setq-default indent-tabs-mode nil)
-(setq-default tab-width 4)
-(setq-default indent-line-function 'insert-tab)
-(defvaralias 'c-basic-offset 'tab-width)
-(defvaralias 'cperl-indent-level 'tab-width)
+;; Load autocomplete
+(add-to-list 'load-path "~/.emacs.d/autocomplete/")
+(require 'auto-complete-config)
+(add-to-list 'ac-dictionary-directories "~/.emacs.d/autocomplete//ac-dict")
+(ac-config-default)
+
+;; Load flymake
+(require 'flymake)
+(add-hook 'find-file-hook 'flymake-mode)
+
+;; Load Midnight
+(require 'midnight)
+(midnight-delay-set 'midnight-delay 3600)
 
 ;; Try to format indentation for yanks
 (dolist (command '(yank yank-pop))
@@ -63,29 +87,52 @@
                              (save-excursion
                                (goto-char (cdr langelem))
                                (vector (current-column))))
+                           (c-set-offset 'case-label '+)
                            (c-set-offset 'arglist-intro 'ywb-php-lineup-arglist-intro)
                            (c-set-offset 'arglist-close 'ywb-php-lineup-arglist-close)))
 
-;; Start nXhtml
-(load "~/.emacs.d/nxhtml/autostart.el")
-(load "~/.emacs.d/lisp/mumamo-workaround.el")
-(setq mumamo-background-colors nil)
+(load "~/.emacs.d/lisp/php-align.el")
+(add-hook 'php-mode-hook (lambda () (require 'php-align) (php-align-setup)))
 
-;; Load autocomplete
-(add-to-list 'load-path "~/.emacs.d/autocomplete/")
-(require 'auto-complete-config)
-(add-to-list 'ac-dictionary-directories "~/.emacs.d/autocomplete//ac-dict")
-(ac-config-default)
+(setq load-path (cons "~/.emacs.d/geben/" load-path))
+(autoload 'geben "geben" "DBGp protocol frontend, a script debugger" t)
 
-;; Load flymake
-(require 'flymake)
-(add-hook 'find-file-hook 'flymake-mode)
+;; Debug a simple PHP script.
+;; Change the session key my-php-54 to any session key text you like
+(defun php-xdebug ()
+  "Run current PHP script for debugging with geben"
+  (interactive)
+  (call-interactively 'geben)
+  (shell-command
+    (concat "XDEBUG_CONFIG='idekey=php-xdebug' /usr/bin/php "
+    (buffer-file-name) " &")))
+(global-set-key [f5] 'php-xdebug)
 
-;; Load Midnight
-(require 'midnight)
-(midnight-delay-set 'midnight-delay 3600)
+;; Load Theme
+(add-to-list 'custom-theme-load-path "~/.emacs.d/themes")
+(load-theme 'solarized-dark t)
 
+;; Load Theme in every new frame
+(defun thj-reload-solarized (frame)
+  (select-frame frame)
+  (load-theme 'solarized-dark t))
+(defun thj-reload-solarized-on-delete (&optional frame)
+  (load-theme 'solarized-dark t))
+(add-hook 'delete-frame-functions 'thj-reload-solarized-on-delete)
+(add-hook 'server-done-hook 'thj-reload-solarized-on-delete)
+(add-hook 'after-make-frame-functions 'thj-reload-solarized)
 
+;; Remove DOS EOL
+(defun remove-dos-eol ()
+  "Do not show ^M in files containing mixed UNIX and DOS line endings."
+  (interactive)
+  (setq buffer-display-table (make-display-table))
+  (aset buffer-display-table ?\^M []))
+(add-hook 'text-mode-hook 'remove-dos-eol)
+(add-hook 'php-mode-hook 'remove-dos-eol)
+(add-hook 'conf-mode-hook 'remove-dos-eol)
+
+;; Add function to close all buffers
 (defun close-all-buffers ()
   (interactive)
   (mapc 'kill-buffer (buffer-list)))
